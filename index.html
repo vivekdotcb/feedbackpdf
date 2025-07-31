@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Excel to PDF</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+    <h2>Excel to PDF Generator (No PHP)</h2>
+    <input type="file" id="excelFile" accept=".xlsx, .xls" />
+    <button id="generatePdf">Generate PDF</button>
+
+    <script>
+        let allData = [];
+
+        $('#excelFile').on('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+                allData = jsonData;
+                alert("Excel loaded successfully!");
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        $('#generatePdf').on('click', function() {
+            if (allData.length === 0) {
+                alert("Please upload an Excel file first.");
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape' });
+
+            // Grouping by 'Training Name'
+            const grouped = {};
+            allData.forEach(row => {
+                const training = row['Training Name'] || 'Unknown';
+                if (!grouped[training]) grouped[training] = [];
+                grouped[training].push(row);
+            });
+
+            Object.entries(grouped).forEach(([trainingName, records], index) => {
+                if (index !== 0) doc.addPage();
+                doc.setFontSize(14);
+                doc.text(trainingName, 14, 20);
+
+                const headers = Object.keys(records[0]);
+                const data = records.map(row => headers.map(h => row[h]));
+
+                doc.autoTable({
+                    head: [headers],
+                    body: data,
+                    startY: 30,
+                    styles: { fontSize: 8 },
+                    theme: 'grid'
+                });
+            });
+
+            doc.save("training_feedback.pdf");
+        });
+    </script>
+</body>
+</html>
